@@ -6,7 +6,7 @@ import { InteractionHelper } from '../utils/interactionHelper.js';
 
 export default {
     data: new SlashCommandBuilder()
-        .setName('/rlrank')
+        .setName('rlrank')
         .setDescription('Check your Rocket League rank and assign your rank role')
         .addStringOption(option =>
             option
