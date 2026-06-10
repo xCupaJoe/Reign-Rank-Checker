@@ -11,7 +11,7 @@ export default {
         .addStringOption(option =>
             option
                 .setName('url')
-                .setDescription('Your RL Tracker profile URL')
+                .setDescription('Paste your RL Tracker profile URL')
                 .setRequired(true)
         ),
 
@@ -19,19 +19,43 @@ export default {
         try {
             const trackerUrl = interaction.options.getString('url');
 
-            if (!trackerUrl.includes('rocketleague.tracker.network')) {
+            if (!trackerUrl || !trackerUrl.includes('rocketleague.tracker.network')) {
                 return InteractionHelper.safeReply(interaction, {
-                    embeds: [errorEmbed('Invalid URL', 'Please provide a valid Rocket League Tracker URL.')],
+                    embeds: [
+                        errorEmbed(
+                            'Invalid RL Tracker URL',
+                            'Please provide a valid Rocket League Tracker profile URL.'
+                        )
+                    ],
+                    flags: MessageFlags.Ephemeral
+                });
+            }
+
+            const zapierWebhookUrl = process.env.ZAPIER_RANK_WEBHOOK_URL;
+
+            if (!zapierWebhookUrl) {
+                return InteractionHelper.safeReply(interaction, {
+                    embeds: [
+                        errorEmbed(
+                            'Setup Error',
+                            'Zapier webhook URL is missing from Railway variables.'
+                        )
+                    ],
                     flags: MessageFlags.Ephemeral
                 });
             }
 
             await InteractionHelper.safeReply(interaction, {
-                embeds: [successEmbed('Rank Check Started', 'Your rank is being checked. Please wait a moment.')],
+                embeds: [
+                    successEmbed(
+                        'Rank Check Started',
+                        'Your Rocket League rank is being checked. Please wait a moment.'
+                    )
+                ],
                 flags: MessageFlags.Ephemeral
             });
 
-            await fetch(process.env.ZAPIER_RANK_WEBHOOK_URL, {
+            const response = await fetch(zapierWebhookUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -39,9 +63,22 @@ export default {
                 body: JSON.stringify({
                     discordUserId: interaction.user.id,
                     discordUsername: interaction.user.username,
+                    discordTag: interaction.user.tag,
                     guildId: interaction.guildId,
+                    channelId: interaction.channelId,
                     trackerUrl: trackerUrl
                 })
+            });
+
+            if (!response.ok) {
+                throw new Error(`Zapier webhook failed with status ${response.status}`);
+            }
+
+            logger.info('Rank check sent to Zapier', {
+                userId: interaction.user.id,
+                username: interaction.user.username,
+                guildId: interaction.guildId,
+                trackerUrl
             });
 
         } catch (error) {
